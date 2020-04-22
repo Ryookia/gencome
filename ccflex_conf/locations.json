@@ -1,0 +1,37 @@
+{
+  "train": {
+    "baseline_dir": "../main",
+    "locations": [
+      {
+        "path": "../main",
+        "include": [
+          ".+[.]java$"
+        ],
+        "exclude": []
+      }
+      
+    ]
+  },
+
+  "classify": {
+    "baseline_dir": "../main",
+    "locations": [
+      {
+        "path": "../main",
+        "include": [
+          ".+[.]java$"
+        ],
+        "exclude": []
+      }
+    ]
+  },
+
+  "workspace_dir": {
+    "path": "../main_workspace",
+    "erase": true
+  },
+
+  "rscript_executable_path": "/Library/Frameworks/R.framework/Versions/3.4/Resources/Rscript"
+}
+
+
