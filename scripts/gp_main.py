@@ -60,15 +60,15 @@ decision_set.addTerminal(no_count, name="NoCount")
 toolbox = base.Toolbox()
 
 # Attribute generator
-toolbox.register("expr", gp.genFull, pset=decision_set, min_=MIN_TREE_DEPTH, max_=MAX_TREE_DEPTH)
+toolbox.register("expr", gp.genGrow, pset=decision_set, min_=MIN_TREE_DEPTH, max_=MAX_TREE_DEPTH)
 
 # Structure initializers
 toolbox.register("individual", tools.initIterate, creator.Tree, toolbox.expr)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 toolbox.register("evaluate", evaluation, data_holder.features_data, pset=decision_set)
 toolbox.register("mate", gp.cxOnePoint)
-toolbox.register("expr_mut", gp.genFull, min_=0, max_=2)
-toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=decision_set)
+toolbox.register("expr_mut", gp.genGrow, min_=MIN_TREE_DEPTH, max_=MAX_TREE_DEPTH)
+toolbox.register("mutate", gp.mutNodeReplacement, pset=decision_set)
 toolbox.register("select", tools.selTournament, tournsize=TOURNAMENT_SIZE)
 
 stats = tools.Statistics(lambda ind: ind.fitness.values)
