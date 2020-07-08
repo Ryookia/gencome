@@ -1,7 +1,8 @@
 import csv
 import os
+from scripts.utils import get_primitive_keyword
 from scripts.data_holder import DataHolder
-from scripts.constants import FEATURES_FILE, CLASS_KEYWORD, TEST_KEYWORD, FILE_SEPARATOR
+from scripts.constants import FEATURES_FILE, CLASS_KEYWORD, TEST_KEYWORD, FILE_SEPARATOR, NOT_PREFIX
 
 
 def load_data(data_file_path):
@@ -18,8 +19,11 @@ def load_data(data_file_path):
             if current_file != file_name:
                 data.features_data[file_name] = {}
                 current_file = file_name
-            data.features_data[file_name][int(file_line)] = line[1:-1]
-
+            data.features_data[file_name][int(file_line)] = line[1:]
+    sorted_data = sorted(data.features_data.items())
+    data.features_data = dict()
+    for entry in sorted_data:
+        data.features_data[entry[0]] = entry[1]
     file_names = os.listdir(data_file_path)
 
     for file_name in file_names:
@@ -52,3 +56,17 @@ def load_data(data_file_path):
                 data.test_data_values[type_key].append(int(data.test_data[type_key][key]))
 
     return data
+
+
+def save_rules(file, rules, data_holder):
+    for rule in rules:
+        for keyword in rule[0]:
+            line = ""
+            if not keyword[0]:
+                line += NOT_PREFIX
+            line += get_primitive_keyword(keyword[1], data_holder.features)
+            file.write(line)
+            file.write(', ')
+        file.write(rule[1])
+        file.write("\n")
+    file.write("----\n")

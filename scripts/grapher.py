@@ -1,24 +1,26 @@
 import pygraphviz as pgv
 from scripts.constants import BASE_FEATURE_NAME
+from scripts.utils import get_primitive_keyword
 
 RED_COLOR = "#ff6666"
 GREEN_COLOR = '#66ff99'
+
 
 def visualize_individual(data_holder, head_node):
     graph = pgv.AGraph(strict=False, directed=True)
     add_node_to_graph(graph, head_node, data_holder)
     graph.layout(prog='dot')
-    graph.draw('file.png')
+    return graph
 
 
 def add_node_to_graph(graph, node, data_holder):
     if node.value.arity == 0:
         return
-    graph.add_edge(node, node.rightChild, label='no keyword')
-    right_edge = graph.get_edge(node, node.rightChild)
+    graph.add_edge(node, node.leftChild, label='no keyword')
+    right_edge = graph.get_edge(node, node.leftChild)
     right_edge.attr['color'] = RED_COLOR
-    graph.add_edge(node, node.leftChild, label='has keyword')
-    left_edge = graph.get_edge(node, node.leftChild)
+    graph.add_edge(node, node.rightChild, label='has keyword')
+    left_edge = graph.get_edge(node, node.rightChild)
     left_edge.attr['color'] = GREEN_COLOR
     style_node(node, graph, data_holder)
     style_node(node.leftChild, graph, data_holder)
@@ -46,8 +48,3 @@ def style_node(node, graph, data_holder):
         else:
             graph_node.attr["fillcolor"] = RED_COLOR
             graph_node.attr["color"] = RED_COLOR
-
-
-def get_primitive_keyword(name, features):
-    return features[int(name.replace(BASE_FEATURE_NAME, ''))]
-

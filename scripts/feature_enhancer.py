@@ -5,7 +5,8 @@ import csv
 from scripts.constants import JAVA_PRIMITIVES_LIST, JAVA_EXCEPTIONS_LIST, JAVA_ACCESS_MOD_LIST, JAVA_CONDITION_LIST, \
     JAVA_LOOP_LIST, JAVA_COMMENT_LIST, JAVA_BRACKETS, JAVA_PRIMITIVES_LIST_KEY, JAVA_EXCEPTIONS_LIST_KEY, \
     JAVA_ACCESS_MOD_LIST_KEY, JAVA_CONDITION_LIST_KEY, JAVA_LOOP_LIST_KEY, JAVA_COMMENT_LIST_KEY, JAVA_BRACKETS_KEY, \
-    JAVA_LOW_FREQUENCY_WORD_LIST, JAVA_CONTENTS
+    JAVA_LOW_FREQUENCY_WORD_LIST, JAVA_CONTENTS, JAVA_QUOTES_LIST, JAVA_QUOTES_KEY, JAVA_WHITESPACE_LIST, \
+    JAVA_WHITESPACE_KEY, JAVA_SLASH_LIST, JAVA_BACKSLASH_LIST, JAVA_SLASH_KEY, JAVA_BACKSLASH_KEY
 
 if len(sys.argv) == 1:
     print("No argument for csv file")
@@ -19,11 +20,15 @@ data = []
 FEATURES_GROUP = [JAVA_PRIMITIVES_LIST, JAVA_EXCEPTIONS_LIST,
                   JAVA_ACCESS_MOD_LIST, JAVA_CONDITION_LIST,
                   JAVA_LOOP_LIST, JAVA_COMMENT_LIST,
-                  JAVA_BRACKETS]
+                  JAVA_BRACKETS, JAVA_QUOTES_LIST,
+                  JAVA_WHITESPACE_LIST, JAVA_SLASH_LIST,
+                  JAVA_BACKSLASH_LIST]
 FEATURES_GROUP_KEY = [JAVA_PRIMITIVES_LIST_KEY, JAVA_EXCEPTIONS_LIST_KEY,
                       JAVA_ACCESS_MOD_LIST_KEY, JAVA_CONDITION_LIST_KEY,
                       JAVA_LOOP_LIST_KEY, JAVA_COMMENT_LIST_KEY,
-                      JAVA_BRACKETS_KEY]
+                      JAVA_BRACKETS_KEY, JAVA_QUOTES_KEY,
+                      JAVA_WHITESPACE_KEY, JAVA_SLASH_KEY,
+                      JAVA_BACKSLASH_KEY]
 FEATURES_REMOVE = [JAVA_LOW_FREQUENCY_WORD_LIST, JAVA_CONTENTS]
 
 with open(data_file_path) as csvFile:
@@ -74,13 +79,6 @@ with open(data_file_path) as csvFile:
         offset += 1
     for key in FEATURES_GROUP_KEY:
         features.append(key)
-
-    # for line in data:
-    #     for index, cell in enumerate(line):
-    #         line[index] = '"' + str(cell) + '"'
-
-    # for index, feature in enumerate(features):
-    #     features[index] = '"' + feature
 
     with open('/home/Shodan/ress.csv', 'w+') as csvResult:
         writer = csv.writer(csvResult, delimiter=FILE_SEPARATOR, quotechar='"', quoting=csv.QUOTE_ALL)

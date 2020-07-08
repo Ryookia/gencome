@@ -3,17 +3,24 @@ FEATURES_FILE = "/ress.csv"
 CLASS_KEYWORD = "class"
 TEST_KEYWORD = "test"
 FILE_SEPARATOR = "_"
+RULES_FILE = "/rules.txt"
+NOT_PREFIX = "!"
 
 MAX_TREE_DEPTH = 5
 MIN_TREE_DEPTH = 1
 
-POPULATION_SIZE = 150
+POPULATION_SIZE = 50
 
 TOURNAMENT_SIZE = 5
 
 CROSS_PROBABILITY = 0.3
 MUTATE_PROBABILITY = 0.1
-GENERATION_COUNT = 50
+GENERATION_COUNT = 0
+
+MUT_UNIFORM_WEIGHT = 1
+MUT_REPLACEMENT_WEIGHT = 1
+MUT_INSERT_WEIGHT = 1
+MUT_SHRINK_WEIGHT = 1
 
 BASE_FEATURE_NAME = "Feature"
 
@@ -43,6 +50,18 @@ JAVA_CONDITION_LIST_KEY = 'condition keywords'
 
 JAVA_LOOP_LIST = ['for', 'while', 'do', 'continue']
 JAVA_LOOP_LIST_KEY = 'loop keyword'
+
+JAVA_WHITESPACE_LIST = [' ', '\t']
+JAVA_WHITESPACE_KEY = 'whitespace'
+
+JAVA_QUOTES_LIST = ['"', "'"]
+JAVA_QUOTES_KEY = 'quotes'
+
+JAVA_SLASH_LIST = ["/"]
+JAVA_SLASH_KEY = "slash"
+
+JAVA_BACKSLASH_LIST = ["\\"]
+JAVA_BACKSLASH_KEY = "backslash"
 
 JAVA_REDUCED_KEYWORD_LIST = ['abstract', 'new',
                              'assert', 'default', 'goto', 'package', 'synchronized',
