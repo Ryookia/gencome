@@ -1,0 +1,51 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "run_fast",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/gencome_runner.py",
+            "console": "integratedTerminal",
+            "args" : [
+                "--x_file_path", "./example/x_java_files.csv",
+                "--y_file_path", "./example/y_java_tests_eloc.csv",
+                "--max_tree_depth", "2",
+                "--tournament_size", "5",
+                "--population_size", "25",
+                "--crossover_prob", "0.95",
+                "--mutate_prob", "0.1",
+                "--generations", "1",
+                "--results_dir_path", "./example/results",
+            ]
+        },
+        {
+            "name": "run",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/gencome_runner.py",
+            "console": "integratedTerminal",
+            "args" : [
+                "--x_file_path", "./example/x_java_files.csv",
+                "--y_file_path", "./example/y_java_tests_eloc.csv",
+                "--max_tree_depth", "2",
+                "--tournament_size", "5",
+                "--population_size", "100",
+                "--crossover_prob", "0.95",
+                "--mutate_prob", "0.1",
+                "--generations", "1000",
+                "--results_dir_path", "./example/results",
+            ]
+        }
+    ]
+}
