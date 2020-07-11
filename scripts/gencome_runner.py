@@ -211,11 +211,20 @@ if __name__ == '__main__':
             head_node = list_dfs_to_tree(hof_ind)
             print(f"Definition {i+1}: {str_individual_with_real_feature_names(hof_ind)}")
             graph = visualize_individual(head_node)
-            graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.png"),
-                    format="png", prog="dot")
-            graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.pdf"),
-                    format="pdf", prog="dot")
-            graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.dot"),
-                    format="dot", prog="dot")
+            try:
+                graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.png"),
+                        format="png", prog="dot")
+            except: 
+                print(f"Unable to generate tree-top-{str(i+1)}.png")
+            try:
+                graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.pdf"),
+                        format="pdf", prog="dot")
+            except: 
+                print(f"Unable to generate tree-top-{str(i+1)}.pdf")
+            try:
+                graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.dot"),
+                        format="dot", prog="dot")
+            except: 
+                print(f"Unable to generate tree-top-{str(i+1)}.dot")
             save_rules(f, get_decision_rules(hof_ind), i+1, hof_ind)
 
