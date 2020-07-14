@@ -160,6 +160,7 @@ for key in x_groups.keys():
     x_features[key] = pd.DataFrame(x_groups.get(key)).values
 del x_groups
 gencome.config.features = columns
+gc.collect()
 
 y_file = pd.read_csv(y_file_path, sep=sep)
 y_file = y_file
