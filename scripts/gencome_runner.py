@@ -9,6 +9,10 @@ import argparse
 import operator
 import pickle
 
+import copy
+from collections import defaultdict
+import gc
+
 from deap import algorithms, creator, base, gp, tools
 
 import multiprocessing
@@ -143,10 +147,19 @@ if not os.path.isdir(results_dir_path):
 
 #Load data
 x_file = pd.read_csv(x_file_path, sep=sep)
-x_grouped = [x for x in x_file.groupby('id')]
-x_features = {index : features.drop(["id"], axis=1).values for index, features in x_grouped}
-gencome.config.features = x_file.drop(["id"], axis=1).columns.tolist()
 
+x_groups = defaultdict(lambda: [])
+id_index = x_file.columns.tolist().index("id")
+columns = x_file.columns.tolist()
+del columns[id_index]
+x_features = dict()
+for row in x_file.values:
+    new_row = copy.deepcopy(row)
+    x_groups[str(new_row[id_index])].append(tuple(np.delete(new_row, id_index).tolist()))
+for key in x_groups.keys():
+    x_features[key] = pd.DataFrame(x_groups.get(key)).values
+del x_groups
+gencome.config.features = columns
 
 y_file = pd.read_csv(y_file_path, sep=sep)
 y_file = y_file
