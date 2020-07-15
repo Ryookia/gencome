@@ -1,5 +1,13 @@
 
+import logging
+logger = logging.getLogger(f'gencome')
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+logger.addHandler(ch)
+
 features = None
+x_features = None
 y = {}
 toolbox = None
 correlation = None

@@ -8,6 +8,7 @@ import pandas as pd
 import argparse
 import operator
 import pickle
+from timeit import default_timer as timer
 
 import copy
 from collections import defaultdict
@@ -24,6 +25,7 @@ from gencome.grapher import visualize_individual
 from gencome.utils import list_dfs_to_tree, get_decision_rules, str_individual_with_real_feature_names
 from gencome.file_utils import save_rules
 
+logger = gencome.config.logger
 
 # This part is outside of the "if main" check because of DEAP's issues with multiprocessing on Windows.
 # If registering the multiprocessing map is moved inside the "if main" check it will fail.
@@ -145,28 +147,44 @@ if not os.path.isfile(y_file_path):
 if not os.path.isdir(results_dir_path):
     os.makedirs(results_dir_path)
 
-#Load data
-x_file = pd.read_csv(x_file_path, sep=sep)
 
+#Load data
+logger.debug("Loading x data...")
+start = timer()
+x_file = pd.read_csv(x_file_path, sep=sep)
+end = timer()
+logger.debug(f"Loaded x csv file ({end-start:.2f}s)...")
+
+logger.debug("Grouping x data by id...")
+start = timer()
 x_groups = defaultdict(lambda: [])
 id_index = x_file.columns.tolist().index("id")
 columns = x_file.columns.tolist()
 del columns[id_index]
 x_features = dict()
-for row in x_file.values:
-    new_row = copy.deepcopy(row)
+for i, row in enumerate(x_file.values):
+    if i % 1000 == 0:
+        logger.debug(f"Processing {i+1:,} row from the x csv file...")
+    new_row = row
     x_groups[str(new_row[id_index])].append(tuple(np.delete(new_row, id_index).tolist()))
+logger.debug("Grouping by id...")
 for key in x_groups.keys():
+    if i % 1000 == 0:
+        logger.debug(f"Grouping by {i+1:,} id from the x csv file...")
     x_features[key] = pd.DataFrame(x_groups.get(key)).values
 del x_groups
 gencome.config.features = columns
+gencome.config.x_features = x_features
+end = timer()
+logger.debug(f"Grouped x data by id ({end-start:.2f}s)...")
 gc.collect()
 
+logger.debug("Loading y data...")
 y_file = pd.read_csv(y_file_path, sep=sep)
 y_file = y_file
 gencome.config.y = {y[1]['id']:y[1]['value'] for y in y_file[['id', 'value']].iterrows()}
 
-
+logger.debug("Configuring the toolbox...")
 decision_set = gp.PrimitiveSet(name="BaseSet", arity=0)
 for index, feature in enumerate(gencome.config.features, start=0):
     decision_set.addPrimitive(primitive_feature(feature), arity=2, 
@@ -188,7 +206,7 @@ toolbox.register("expr", gp.genGrow, pset=decision_set,
 # Structure initializers
 toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-toolbox.register("evaluate", evaluation, x_features, pset=decision_set)
+toolbox.register("evaluate", evaluation, gencome.config.x_features, pset=decision_set)
 toolbox.register("mate", gp.cxOnePoint)
 toolbox.register("expr_mut", gp.genGrow, 
             min_=gencome.config.min_tree_depth, max_=gencome.config.max_tree_depth)
@@ -199,6 +217,7 @@ toolbox.decorate("mutate", invalid_tree())
 toolbox.decorate("mate", invalid_tree())
 
 if __name__ == '__main__':
+
     pool = multiprocessing.Pool(threads)
     toolbox.register("map", pool.map)
 
@@ -210,6 +229,7 @@ if __name__ == '__main__':
     stats.register("min", np.min)
     stats.register("max", np.max)
 
+    logger.debug("Running the algorithm...")
     population, logbook = algorithms.eaSimple(population, toolbox, gencome.config.crossover_prob, 
             gencome.config.mutate_prob, gencome.config.generations, 
             stats=stats, halloffame=hof)
@@ -217,6 +237,7 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
+    logger.debug("Reporting...")
     with open(os.path.join(results_dir_path, "logbook.pickle"), 'wb') as f:
         pickle.dump(logbook, f)
 

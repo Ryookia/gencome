@@ -6,6 +6,7 @@ import copy
 import numpy as np
 from scipy.stats import spearmanr
 from deap import  gp
+from timeit import default_timer as timer
 
 import gencome.config
 
@@ -14,12 +15,17 @@ DOUBLE_NOT_COUNT = f"({gencome.config.NOT_COUNT_LABEL}, {gencome.config.NOT_COUN
 
 from gencome.utils import get_primitive_keyword, str_individual_with_real_feature_names
 
+logger = gencome.config.logger
+
 def is_invalid_ind(ind, key, max_value):
     str_ind = str(ind)
-    return DOUBLE_NOT_COUNT in str_ind or DOUBLE_NOT_COUNT in str_ind or key(ind) > max_value
+    return DOUBLE_COUNT in str_ind or DOUBLE_NOT_COUNT in str_ind or key(ind) > max_value
 
 def evaluation(data, individual, pset):
+    start = timer()
     if is_invalid_ind(individual, operator.attrgetter('height'), gencome.config.max_tree_depth):
+        end = timer()
+        logger.debug(f"Evaluating {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
         return 0,
     func = gp.compile(expr=individual, pset=pset)
     x_count_result = []
@@ -39,7 +45,11 @@ def evaluation(data, individual, pset):
     elif gencome.config.correlation == "Pearson":
         value = np.corrcoef(x_count_result, y_count_result).min()
     if math.isnan(value):
+        end = timer()
+        logger.debug(f"Evaluating {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
         return 0,
+    end = timer()
+    logger.debug(f"Evaluating {end-start:.2f}s, fitness={value:.3f}, {str_individual_with_real_feature_names(individual)}")
     return value,
 
 def multiple_mutator(individual, pset):
