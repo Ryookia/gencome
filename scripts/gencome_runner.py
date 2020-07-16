@@ -9,9 +9,11 @@ import argparse
 import operator
 import pickle
 from timeit import default_timer as timer
+import random
+import json
 
 import copy
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import gc
 
 from deap import algorithms, creator, base, gp, tools
@@ -20,15 +22,14 @@ import multiprocessing
 
 import gencome.config 
 from gencome.gp_functions import count, no_count, primitive_feature, evaluation, \
-    multiple_mutator, invalid_tree
+    multiple_mutator, invalid_tree, gen_grow
 from gencome.grapher import visualize_individual
 from gencome.utils import list_dfs_to_tree, get_decision_rules, str_individual_with_real_feature_names
 from gencome.file_utils import save_rules
 
 logger = gencome.config.logger
 
-# This part is outside of the "if main" check because of DEAP's issues with multiprocessing on Windows.
-# If registering the multiprocessing map is moved inside the "if main" check it will fail.
+# The arguments are loaded outside of the "if main" check so workers have access to runtime settings
 
 parser = argparse.ArgumentParser(description=description)
 
@@ -113,6 +114,10 @@ parser.add_argument("--top_best",
                     help="a number of the 'best' individuals to report.", 
                     type=int, default=10)
 
+parser.add_argument("--random_state",
+                    help="a random seed.", 
+                    type=int, default=24110)
+
 args = vars(parser.parse_args())
 print(f"Run parameters: {str(args)}")
 
@@ -123,6 +128,7 @@ results_dir_path = args['results_dir_path']
 sep = args['sep']
 threads = args['threads']
 top_best = args['top_best']
+random_state = args['random_state']
 gencome.config.correlation = args['correlation']
 gencome.config.min_tree_depth = args['min_tree_depth']
 gencome.config.max_tree_depth = args['max_tree_depth']
@@ -147,76 +153,105 @@ if not os.path.isfile(y_file_path):
 if not os.path.isdir(results_dir_path):
     os.makedirs(results_dir_path)
 
+# Each worker need to initialize individual so it 
+# needs to load minimum data from the input file to do so.
+if multiprocessing.current_process().name != "MainProcess":
+    logger.debug(f"Loading data in the worker: {multiprocessing.current_process().name}")
+    start = timer()
+    x_file = next(pd.read_csv(x_file_path, sep=sep, chunksize=1))
+    end = timer()
+    logger.debug(f"Loaded data in the worker: {multiprocessing.current_process().name} ({end-start:.2f}s)...")
 
-#Load data
-logger.debug("Loading x data...")
-start = timer()
-x_file = pd.read_csv(x_file_path, sep=sep)
-end = timer()
-logger.debug(f"Loaded x csv file ({end-start:.2f}s)...")
+    id_index = x_file.columns.tolist().index("id")
+    columns = x_file.columns.tolist()
+    del columns[id_index]
+    gencome.config.features = columns
 
-logger.debug("Grouping x data by id...")
-start = timer()
-x_groups = defaultdict(lambda: [])
-id_index = x_file.columns.tolist().index("id")
-columns = x_file.columns.tolist()
-del columns[id_index]
-x_features = dict()
-for i, row in enumerate(x_file.values):
-    if i % 1000 == 0:
-        logger.debug(f"Processing {i+1:,} row from the x csv file...")
-    new_row = row
-    x_groups[str(new_row[id_index])].append(tuple(np.delete(new_row, id_index).tolist()))
-logger.debug("Grouping by id...")
-for key in x_groups.keys():
-    if i % 1000 == 0:
-        logger.debug(f"Grouping by {i+1:,} id from the x csv file...")
-    x_features[key] = pd.DataFrame(x_groups.get(key)).values
-del x_groups
-gencome.config.features = columns
-gencome.config.x_features = x_features
-end = timer()
-logger.debug(f"Grouped x data by id ({end-start:.2f}s)...")
-gc.collect()
+    decision_set = gp.PrimitiveSet(name="BaseSet", arity=0)
+    for index, feature in enumerate(gencome.config.features, start=0):
+        decision_set.addPrimitive(primitive_feature(feature), arity=2, 
+                        name=gencome.config.BASE_FEATURE_NAME + str(index))
+    decision_set.addTerminal(count, name=gencome.config.COUNT_LABEL)
+    decision_set.addTerminal(no_count, name=gencome.config.NOT_COUNT_LABEL)
 
-logger.debug("Loading y data...")
-y_file = pd.read_csv(y_file_path, sep=sep)
-y_file = y_file
-gencome.config.y = {y[1]['id']:y[1]['value'] for y in y_file[['id', 'value']].iterrows()}
-
-logger.debug("Configuring the toolbox...")
-decision_set = gp.PrimitiveSet(name="BaseSet", arity=0)
-for index, feature in enumerate(gencome.config.features, start=0):
-    decision_set.addPrimitive(primitive_feature(feature), arity=2, 
-                    name=gencome.config.BASE_FEATURE_NAME + str(index))
-decision_set.addTerminal(count, name=gencome.config.COUNT_LABEL)
-decision_set.addTerminal(no_count, name=gencome.config.NOT_COUNT_LABEL)
-
-# GP declaration
-creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
-
-toolbox = base.Toolbox()
-gencome.config.toolbox = toolbox
-
-# Attribute generator
-toolbox.register("expr", gp.genGrow, pset=decision_set, 
-        min_=gencome.config.min_tree_depth, max_=gencome.config.max_tree_depth)
-
-# Structure initializers
-toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
-toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-toolbox.register("evaluate", evaluation, gencome.config.x_features, pset=decision_set)
-toolbox.register("mate", gp.cxOnePoint)
-toolbox.register("expr_mut", gp.genGrow, 
-            min_=gencome.config.min_tree_depth, max_=gencome.config.max_tree_depth)
-toolbox.register("mutate", multiple_mutator, pset=decision_set)
-toolbox.register("select", tools.selTournament, tournsize=gencome.config.tournament_size)
-
-toolbox.decorate("mutate", invalid_tree())
-toolbox.decorate("mate", invalid_tree())
+    # GP declaration
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+    creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
+    logger.debug(f"Worker {multiprocessing.current_process().name} ready!")
 
 if __name__ == '__main__':
+
+    #Load data
+    logger.debug(f"Loading X data from {x_file_path}...")
+    start = timer()
+    x_file = pd.read_csv(x_file_path, sep=sep)
+    end = timer()
+    logger.debug(f"Loaded X data from {x_file_path} ({end-start:.2f}s)...")
+
+    logger.debug("Grouping X data by id...")
+    start = timer()
+    x_groups = defaultdict(lambda: [])
+    id_index = x_file.columns.tolist().index("id")
+    columns = x_file.columns.tolist()
+    del columns[id_index]
+    x_features = OrderedDict()
+    for i, row in enumerate(x_file.values):
+        if i % 10000 == 0:
+            logger.debug(f"Processing {i+1:,} row from X...")
+        new_row = row
+        x_groups[str(new_row[id_index])].append(tuple(np.delete(new_row, id_index).tolist()))
+    logger.debug("Grouping by id...")
+    for key in x_groups.keys():
+        if i % 1000 == 0:
+            logger.debug(f"Grouping by {i+1:,} id '{key}' from X ...")
+        x_features[key] = pd.DataFrame(x_groups.get(key)).values
+    del x_groups
+    gencome.config.features = columns
+    gencome.config.x_features = x_features
+    end = timer()
+    logger.debug(f"Finished the grouping of the X data by id ({end-start:.2f}s)...")
+    gc.collect()
+
+    logger.debug(f"Loading Y data from {x_file_path}...")
+    y_file = pd.read_csv(y_file_path, sep=sep)
+    gencome.config.y_dict = {y[1]['id']:y[1]['value'] for y in y_file[['id', 'value']].iterrows()}
+    gencome.config.y = [gencome.config.y_dict[index] for index in x_features]
+
+    logger.debug("Configuring the toolbox...")
+    decision_set = gp.PrimitiveSet(name="BaseSet", arity=0)
+    for index, feature in enumerate(gencome.config.features, start=0):
+        decision_set.addPrimitive(primitive_feature(feature), arity=2, 
+                        name=gencome.config.BASE_FEATURE_NAME + str(index))
+    decision_set.addTerminal(count, name=gencome.config.COUNT_LABEL)
+    decision_set.addTerminal(no_count, name=gencome.config.NOT_COUNT_LABEL)
+
+    # GP declaration
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+    creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
+
+    toolbox = base.Toolbox()
+    gencome.config.toolbox = toolbox
+
+    # Attribute generator
+    toolbox.register("expr", gen_grow, pset=decision_set, 
+            min_=gencome.config.min_tree_depth, max_=gencome.config.max_tree_depth)
+
+    # Structure initializers
+    toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    data = (gencome.config.max_tree_depth, gencome.config.x_features, gencome.config.y)
+    toolbox.register("evaluate", evaluation, data, pset=decision_set)
+    toolbox.register("mate", gp.cxOnePoint)
+    toolbox.register("expr_mut", gen_grow, 
+                min_=gencome.config.min_tree_depth, max_=gencome.config.max_tree_depth)
+    toolbox.register("mutate", multiple_mutator, pset=decision_set)
+    toolbox.register("select", tools.selTournament, tournsize=gencome.config.tournament_size)
+
+    toolbox.decorate("mutate", invalid_tree())
+    toolbox.decorate("mate", invalid_tree())
+
+    random.seed(random_state)
+    np.random.seed(random_state)
 
     pool = multiprocessing.Pool(threads)
     toolbox.register("map", pool.map)
@@ -234,17 +269,19 @@ if __name__ == '__main__':
             gencome.config.mutate_prob, gencome.config.generations, 
             stats=stats, halloffame=hof)
 
+    population = sorted(population, key=lambda ind: ind.fitness.values[0], reverse=True) 
+
     pool.close()
     pool.join()
 
     logger.debug("Reporting...")
     with open(os.path.join(results_dir_path, "logbook.pickle"), 'wb') as f:
         pickle.dump(logbook, f)
-
+    
     with open(os.path.join(results_dir_path, "rules.txt"), 'w') as f:
         for i, hof_ind in enumerate(hof):
             head_node = list_dfs_to_tree(hof_ind)
-            print(f"Definition {i+1}: {str_individual_with_real_feature_names(hof_ind)}")
+            print(f"Definition Top#{i+1}: {str_individual_with_real_feature_names(hof_ind)}")
             graph = visualize_individual(head_node)
             try:
                 graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.png"),
@@ -261,5 +298,36 @@ if __name__ == '__main__':
                         format="dot", prog="dot")
             except: 
                 print(f"Unable to generate tree-top-{str(i+1)}.dot")
-            save_rules(f, get_decision_rules(hof_ind), i+1, hof_ind)
+            save_rules(f, get_decision_rules(hof_ind), f"Top#{i+1}", hof_ind)
+
+        for j, pop_ind in enumerate(population):
+            if pop_ind not in hof:
+                print(f"Definition Pop#{j+1}: {str_individual_with_real_feature_names(pop_ind)}")
+                head_node = list_dfs_to_tree(pop_ind)
+                graph = visualize_individual(head_node)
+                try:
+                    graph.draw(path=os.path.join(results_dir_path, f"tree-pop-{str(j+1)}.png"),
+                            format="png", prog="dot")
+                except: 
+                    print(f"Unable to generate tree-pop-{str(j+1)}.png")
+                try:
+                    graph.draw(path=os.path.join(results_dir_path, f"tree-pop-{str(j+1)}.pdf"),
+                            format="pdf", prog="dot")
+                except: 
+                    print(f"Unable to generate tree-pop-{str(j+1)}.pdf")
+                try:
+                    graph.draw(path=os.path.join(results_dir_path, f"tree-pop-{str(j+1)}.dot"),
+                            format="dot", prog="dot")
+                except: 
+                    print(f"Unable to generate tree-pop-{str(j+1)}.dot")
+                save_rules(f, get_decision_rules(pop_ind), f"Pop#{j+1}", pop_ind)
+
+    individuals = []
+    for i, ind in enumerate(hof):
+        individuals.append((f"Top#{i+1}", str_individual_with_real_feature_names(ind), ind.fitness.values[0]))
+    for i, ind in enumerate(population):
+        if ind not in hof:
+            individuals.append((f"Pop#{i+1}", str_individual_with_real_feature_names(ind), ind.fitness.values[0]))   
+    with open(os.path.join(results_dir_path, "trees.json"), 'w', encoding='utf-8') as fj:
+        json.dump(individuals, fj, indent=4, ensure_ascii=True)
 

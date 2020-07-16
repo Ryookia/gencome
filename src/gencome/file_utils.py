@@ -5,7 +5,7 @@ import gencome.config
 from gencome.utils import get_primitive_keyword, str_individual_with_real_feature_names
 
 def save_rules(file, rules, number, individual):
-    file.write(f"Definition #{number} (score: {', '.join([str(x) for x in individual.fitness.values])})\n")
+    file.write(f"Definition {number} (score: {', '.join([str(x) for x in individual.fitness.values])})\n")
     file.write(f"Tree: {str_individual_with_real_feature_names(individual)}\n")
     file.write(f"Rules:\n")
     for rule in rules:

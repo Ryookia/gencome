@@ -8,7 +8,8 @@ logger.addHandler(ch)
 
 features = None
 x_features = None
-y = {}
+y_dict = {}
+y = None
 toolbox = None
 correlation = None
 min_tree_depth = None
@@ -27,3 +28,5 @@ BASE_FEATURE_NAME = "Feature"
 NOT_PREFIX = "!"
 COUNT_LABEL = "true"
 NOT_COUNT_LABEL = "false"
+
+MAX_ATTEMPTS_TO_GENERATE_VALID_IND = 1000

@@ -17,29 +17,36 @@ from gencome.utils import get_primitive_keyword, str_individual_with_real_featur
 
 logger = gencome.config.logger
 
-def is_invalid_ind(ind, key, max_value):
+def has_invalid_leafs_ind_list(ind):
+    for i, x in enumerate(ind):
+        if i+1 < len(ind) and ind[i+1] == x:
+            return True
+    return False
+
+def has_invalid_leafs(ind):
     str_ind = str(ind)
-    return DOUBLE_COUNT in str_ind or DOUBLE_NOT_COUNT in str_ind or key(ind) > max_value
+    return DOUBLE_COUNT in str_ind or DOUBLE_NOT_COUNT in str_ind
+
+def is_too_deep_ind(ind, key, max_value):
+    return  key(ind) > max_value
 
 def evaluation(data, individual, pset):
+    max_tree_depth, x_features, y_count_result = data
     start = timer()
-    if is_invalid_ind(individual, operator.attrgetter('height'), gencome.config.max_tree_depth):
+    if is_too_deep_ind(individual, operator.attrgetter('height'), max_tree_depth):
         end = timer()
         logger.debug(f"Evaluating {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
         return 0,
     func = gp.compile(expr=individual, pset=pset)
+    
     x_count_result = []
-    x_count_result_index = []
-    for index in data:
+    for index in x_features:
         count = 0
-        for entry in data[index]:
+        for entry in x_features[index]:
             if func(entry):
                 count += 1
         x_count_result.append(count)
-        x_count_result_index.append(index)
 
-    y_count_result = [gencome.config.y[index] for index in x_count_result_index]
-    
     if gencome.config.correlation == "Spearman":
         value = spearmanr(x_count_result, y_count_result)[0]
     elif gencome.config.correlation == "Pearson":
@@ -49,7 +56,7 @@ def evaluation(data, individual, pset):
         logger.debug(f"Evaluating {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
         return 0,
     end = timer()
-    logger.debug(f"Evaluating {end-start:.2f}s, fitness={value:.3f}, {str_individual_with_real_feature_names(individual)}")
+    logger.debug(f"Evaluating {end-start:.2f}s, fitness={value:.4f}, {str_individual_with_real_feature_names(individual)}")
     return value,
 
 def multiple_mutator(individual, pset):
@@ -74,21 +81,38 @@ def invalid_tree():
         @wraps(func)
         def wrapper(*args, **kwargs):
             key, max_value = operator.attrgetter('height'), gencome.config.max_tree_depth
-            keep_inds = [copy.deepcopy(ind) for ind in args if not is_invalid_ind(ind, key, max_value)]
+            keep_inds = [copy.deepcopy(ind) for ind in args if not is_too_deep_ind(ind, key, max_value)]
             if len(keep_inds) == 0:
                 new_ind = gencome.config.toolbox.individual()
-                while not is_invalid_ind(new_ind, key, max_value):
+                attempts = 0
+                while is_too_deep_ind(new_ind, key, max_value) and attempts < gencome.config.MAX_ATTEMPTS_TO_GENERATE_VALID_IND:
                     new_ind = gencome.config.toolbox.individual()
+                    attempts += 1
                 keep_inds = [new_ind,]
             new_inds = list(func(*args, **kwargs))
             for i, ind in enumerate(new_inds):
-                if is_invalid_ind(ind, key, max_value):
+                if is_too_deep_ind(ind, key, max_value):
                     new_inds[i] = random.choice(keep_inds)
             return new_inds
 
         return wrapper
 
     return decorator
+
+def gen_grow(pset, min_, max_, type_=None):
+   
+    def condition(height, depth):
+        return depth == height or \
+               (depth >= min_ and random.random() < pset.terminalRatio)
+
+    ind = gp.generate(pset, min_, max_, condition, type_)
+    attempts = 0
+    while has_invalid_leafs_ind_list(ind):
+        ind = gp.generate(pset, min_, max_, condition, type_)
+        attempts += 1
+        if attempts > gencome.config.MAX_ATTEMPTS_TO_GENERATE_VALID_IND:
+            break
+    return ind
 
 def has_keyword(keyword, out1, out2, obj_features):
     if (int(obj_features.tolist()[gencome.config.features.index(keyword)])) > 0:
