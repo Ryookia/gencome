@@ -7,6 +7,7 @@ import numpy as np
 from scipy.stats import spearmanr
 from deap import  gp
 from timeit import default_timer as timer
+import multiprocessing
 
 import gencome.config
 
@@ -35,7 +36,7 @@ def evaluation(data, individual, pset):
     start = timer()
     if is_too_deep_ind(individual, operator.attrgetter('height'), max_tree_depth):
         end = timer()
-        logger.debug(f"Evaluating {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
+        logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
         return 0,
     func = gp.compile(expr=individual, pset=pset)
     
@@ -53,10 +54,10 @@ def evaluation(data, individual, pset):
         value = np.corrcoef(x_count_result, y_count_result).min()
     if math.isnan(value):
         end = timer()
-        logger.debug(f"Evaluating {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
+        logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
         return 0,
     end = timer()
-    logger.debug(f"Evaluating {end-start:.2f}s, fitness={value:.4f}, {str_individual_with_real_feature_names(individual)}")
+    logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness={value:.4f}, {str_individual_with_real_feature_names(individual)}")
     return value,
 
 def multiple_mutator(individual, pset):
