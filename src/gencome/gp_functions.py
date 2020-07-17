@@ -28,13 +28,13 @@ def has_invalid_leafs(ind):
     str_ind = str(ind)
     return DOUBLE_COUNT in str_ind or DOUBLE_NOT_COUNT in str_ind
 
-def is_too_deep_ind(ind, key, max_value):
-    return  key(ind) > max_value
+def is_too_deep_ind(ind, max_value):
+    return  ind.height > max_value
 
 def evaluation(data, individual, pset):
     max_tree_depth, x_features, y_count_result = data
     start = timer()
-    if is_too_deep_ind(individual, operator.attrgetter('height'), max_tree_depth):
+    if is_too_deep_ind(individual, max_tree_depth):
         end = timer()
         logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
         return 0,
@@ -81,18 +81,18 @@ def invalid_tree():
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            key, max_value = operator.attrgetter('height'), gencome.config.max_tree_depth
-            keep_inds = [copy.deepcopy(ind) for ind in args if not is_too_deep_ind(ind, key, max_value)]
+            max_height =  gencome.config.max_tree_depth
+            keep_inds = [copy.deepcopy(ind) for ind in args if not is_too_deep_ind(ind, max_height)]
             if len(keep_inds) == 0:
                 new_ind = gencome.config.toolbox.individual()
                 attempts = 0
-                while is_too_deep_ind(new_ind, key, max_value) and attempts < gencome.config.MAX_ATTEMPTS_TO_GENERATE_VALID_IND:
+                while is_too_deep_ind(new_ind, max_height) and attempts < gencome.config.MAX_ATTEMPTS_TO_GENERATE_VALID_IND:
                     new_ind = gencome.config.toolbox.individual()
                     attempts += 1
                 keep_inds = [new_ind,]
             new_inds = list(func(*args, **kwargs))
             for i, ind in enumerate(new_inds):
-                if is_too_deep_ind(ind, key, max_value):
+                if is_too_deep_ind(ind, max_height):
                     new_inds[i] = random.choice(keep_inds)
             return new_inds
 
