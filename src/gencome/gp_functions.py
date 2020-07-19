@@ -66,14 +66,22 @@ def multiple_mutator(individual, pset):
     cur_weight = gencome.config.mut_uniform_weight
     rng = random.random() * weight_sum
     if rng < cur_weight:
-        return gp.mutUniform(individual, expr=gencome.config.toolbox.expr_mut, pset=pset)
+        new_ind = gp.mutUniform(individual, expr=gencome.config.toolbox.expr_mut, pset=pset)
+        logger.debug(f"Successful mutation: Uniform {str_individual_with_real_feature_names(new_ind[0])}")
+        return new_ind
     cur_weight += gencome.config.mut_replacement_weight
     if rng < cur_weight:
-        return gp.mutNodeReplacement(individual, pset=pset)
+        new_ind = gp.mutNodeReplacement(individual, pset=pset)
+        logger.debug(f"Successful mutation: Node Replace {str_individual_with_real_feature_names(new_ind[0])}")
+        return new_ind
     cur_weight += gencome.config.mut_insert_weight
     if rng < cur_weight:
-        return gp.mutInsert(individual, pset=pset)
-    return gp.mutShrink(individual)
+        new_ind = gp.mutInsert(individual, pset=pset)
+        logger.debug(f"Successful mutation Insert {str_individual_with_real_feature_names(new_ind[0])}")
+        return new_ind
+    new_ind = gp.mutShrink(individual)
+    logger.debug(f"Successful mutation Shrink {str_individual_with_real_feature_names(new_ind[0])}")
+    return new_ind
 
 
 def invalid_tree():
