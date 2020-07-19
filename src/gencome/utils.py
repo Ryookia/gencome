@@ -121,3 +121,8 @@ def compare_rules(rule1, rule2):
     if rule1[1] != rule2[1] or len(rule1[0]) != len(rule2[0]):
         return False
     return rule1[0] == rule2[0] and rule1[1] == rule2[1]
+
+def summarize_individual(label, ind):
+    return {"label": label, 'raw_tree': str(ind), 
+            'tree': str_individual_with_real_feature_names(ind), 
+            'corr': ind.fitness.values[0], 'pvalue': ind.fitness.values[1]}

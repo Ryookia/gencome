@@ -4,7 +4,7 @@ import random
 import operator
 import copy
 import numpy as np
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, pearsonr
 from deap import  gp
 from timeit import default_timer as timer
 import multiprocessing
@@ -37,7 +37,7 @@ def evaluation(data, individual, pset):
     if is_too_deep_ind(individual, max_tree_depth):
         end = timer()
         logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
-        return 0,
+        return 0, 0
     func = gp.compile(expr=individual, pset=pset)
     
     x_count_result = []
@@ -49,16 +49,16 @@ def evaluation(data, individual, pset):
         x_count_result.append(count)
 
     if gencome.config.correlation == "Spearman":
-        value = spearmanr(x_count_result, y_count_result)[0]
+        corr, pvalue = spearmanr(x_count_result, y_count_result)
     elif gencome.config.correlation == "Pearson":
-        value = np.corrcoef(x_count_result, y_count_result).min()
-    if math.isnan(value):
+        corr, pvalue = pearsonr(x_count_result, y_count_result)
+    if math.isnan(corr):
         end = timer()
         logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
-        return 0,
+        return 0, 0
     end = timer()
-    logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness={value:.4f}, {str_individual_with_real_feature_names(individual)}")
-    return value,
+    logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness={corr:.4f} ({pvalue:.3f}), {str_individual_with_real_feature_names(individual)}")
+    return corr, pvalue
 
 def multiple_mutator(individual, pset):
     weight_sum = gencome.config.mut_uniform_weight + gencome.config.mut_replacement_weight \

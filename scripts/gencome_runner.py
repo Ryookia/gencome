@@ -24,7 +24,8 @@ import gencome.config
 from gencome.gp_functions import count, no_count, primitive_feature, evaluation, \
     multiple_mutator, invalid_tree, gen_grow
 from gencome.grapher import visualize_individual
-from gencome.utils import list_dfs_to_tree, get_decision_rules, str_individual_with_real_feature_names
+from gencome.utils import list_dfs_to_tree, get_decision_rules, str_individual_with_real_feature_names, \
+                        summarize_individual
 from gencome.file_utils import save_rules
 
 logger = gencome.config.logger
@@ -181,10 +182,10 @@ if multiprocessing.current_process().name != "MainProcess":
 
     # GP declaration
     if gencome.config.fitness_type == "FitnessMax":
-        creator.create(gencome.config.fitness_type, base.Fitness, weights=(1.0,))
+        creator.create(gencome.config.fitness_type, base.Fitness, weights=(1.0, -1e-100))
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
     else:
-        creator.create(gencome.config.fitness_type, base.Fitness, weights=(-1.0,))
+        creator.create(gencome.config.fitness_type, base.Fitness, weights=(-1.0, -1e-100))
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin, pset=decision_set)
     
     logger.debug(f"Worker {multiprocessing.current_process().name} ready!")
@@ -237,10 +238,10 @@ if __name__ == '__main__':
 
     # GP declaration
     if gencome.config.fitness_type == "FitnessMax":
-        creator.create(gencome.config.fitness_type, base.Fitness, weights=(1.0,))
+        creator.create(gencome.config.fitness_type, base.Fitness, weights=(1.0, -1e-100))
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
     else:
-        creator.create(gencome.config.fitness_type, base.Fitness, weights=(-1.0,))
+        creator.create(gencome.config.fitness_type, base.Fitness, weights=(-1.0, -1e-100))
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin, pset=decision_set)
 
     toolbox = base.Toolbox()
@@ -283,7 +284,7 @@ if __name__ == '__main__':
             gencome.config.mutate_prob, gencome.config.generations, 
             stats=stats, halloffame=hof)
 
-    population = sorted(population, key=lambda ind: ind.fitness.values[0], reverse=True) 
+    population = sorted(population, key=lambda ind: ind.fitness.values[0], reverse=True)
 
     pool.close()
     pool.join()
@@ -293,7 +294,9 @@ if __name__ == '__main__':
         pickle.dump(logbook, f)
     
     with open(os.path.join(results_dir_path, "rules.txt"), 'w') as f:
+        reported = set()
         for i, hof_ind in enumerate(hof):
+            reported.add(str(hof_ind)) 
             head_node = list_dfs_to_tree(hof_ind)
             print(f"Definition Top#{i+1}: {str_individual_with_real_feature_names(hof_ind)}")
             graph = visualize_individual(head_node)
@@ -313,9 +316,10 @@ if __name__ == '__main__':
             except: 
                 print(f"Unable to generate tree-top-{str(i+1)}.dot")
             save_rules(f, get_decision_rules(hof_ind), f"Top#{i+1}", hof_ind)
-
+        
         for j, pop_ind in enumerate(population):
-            if pop_ind not in hof:
+            if str(pop_ind) not in reported:
+                reported.add(str(pop_ind))
                 print(f"Definition Pop#{j+1}: {str_individual_with_real_feature_names(pop_ind)}")
                 head_node = list_dfs_to_tree(pop_ind)
                 graph = visualize_individual(head_node)
@@ -337,11 +341,14 @@ if __name__ == '__main__':
                 save_rules(f, get_decision_rules(pop_ind), f"Pop#{j+1}", pop_ind)
 
     individuals = []
+    reported = set()
     for i, ind in enumerate(hof):
-        individuals.append((f"Top#{i+1}", str(ind), str_individual_with_real_feature_names(ind), ind.fitness.values[0]))
+        individuals.append(summarize_individual(f"Top#{i+1}", ind))
+        reported.add(str(ind))
     for i, ind in enumerate(population):
-        if ind not in hof:
-            individuals.append((f"Pop#{i+1}", str_individual_with_real_feature_names(ind), ind.fitness.values[0]))   
+        if str(ind) not in reported:
+            individuals.append(summarize_individual(f"Pop#{i+1}", ind))  
+            reported.add(str(ind)) 
     with open(os.path.join(results_dir_path, "trees.json"), 'w', encoding='utf-8') as fj:
         json.dump(individuals, fj, indent=4, ensure_ascii=True)
 
