@@ -79,6 +79,14 @@ parser.add_argument("--max_tree_depth",
                     help="a maximum depth of a tree with the metric definition.", 
                     type=int, default=3)
 
+parser.add_argument("--min_init_tree_depth",
+                    help="a minimum depth of a tree during the individuals generation.", 
+                    type=int, default=0)
+
+parser.add_argument("--max_init_tree_depth",
+                    help="a maximum depth of a tree during the individuals generation.", 
+                    type=int, default=2)
+
 parser.add_argument("--tournament_size",
                     help="a number of individuals to take the best in each tournament.", 
                     type=int, default=5)
@@ -138,6 +146,8 @@ gencome.config.correlation = args['correlation']
 gencome.config.fitness_type = args['fitness_type']
 gencome.config.min_tree_depth = args['min_tree_depth']
 gencome.config.max_tree_depth = args['max_tree_depth']
+gencome.config.min_init_tree_depth = args['min_init_tree_depth']
+gencome.config.max_init_tree_depth = args['max_init_tree_depth']
 gencome.config.tournament_size = args['tournament_size']
 gencome.config.population_size = args['population_size']
 gencome.config.crossover_prob = args['crossover_prob']
@@ -249,7 +259,7 @@ if __name__ == '__main__':
 
     # Attribute generator
     toolbox.register("expr", gen_grow, pset=decision_set, 
-            min_=gencome.config.min_tree_depth, max_=gencome.config.max_tree_depth)
+            min_=gencome.config.min_init_tree_depth, max_=gencome.config.max_init_tree_depth)
 
     # Structure initializers
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
