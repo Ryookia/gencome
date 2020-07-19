@@ -324,7 +324,7 @@ if __name__ == '__main__':
 
     individuals = []
     for i, ind in enumerate(hof):
-        individuals.append((f"Top#{i+1}", str_individual_with_real_feature_names(ind), ind.fitness.values[0]))
+        individuals.append((f"Top#{i+1}", str(ind), str_individual_with_real_feature_names(ind), ind.fitness.values[0]))
     for i, ind in enumerate(population):
         if ind not in hof:
             individuals.append((f"Pop#{i+1}", str_individual_with_real_feature_names(ind), ind.fitness.values[0]))   
