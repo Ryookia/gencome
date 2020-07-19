@@ -10,6 +10,7 @@ features = None
 x_features = None
 y_dict = {}
 y = None
+fitness_type = None
 toolbox = None
 correlation = None
 min_tree_depth = None

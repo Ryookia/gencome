@@ -62,6 +62,10 @@ parser.add_argument("--correlation",
                     help="a correlation coefficient to be used when evaluating individuals.", 
                     type=str, choices=["Spearman", "Pearson"], default="Spearman")
 
+parser.add_argument("--fitness_type",
+                    help="a correlation coefficient to be used when evaluating individuals.", 
+                    type=str, choices=["FitnessMax", "FitnessMin"], default="FitnessMax")
+
 parser.add_argument("--threads",
                     help="a number of threads to be used (default is the number of max(#CPUs-1, 1).", 
                     type=int, default=max(multiprocessing.cpu_count()-1, 1))
@@ -130,6 +134,7 @@ threads = args['threads']
 top_best = args['top_best']
 random_state = args['random_state']
 gencome.config.correlation = args['correlation']
+gencome.config.fitness_type = args['fitness_type']
 gencome.config.min_tree_depth = args['min_tree_depth']
 gencome.config.max_tree_depth = args['max_tree_depth']
 gencome.config.tournament_size = args['tournament_size']
@@ -175,8 +180,13 @@ if multiprocessing.current_process().name != "MainProcess":
     decision_set.addTerminal(no_count, name=gencome.config.NOT_COUNT_LABEL)
 
     # GP declaration
-    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-    creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
+    if gencome.config.fitness_type == "FitnessMax":
+        creator.create(gencome.config.fitness_type, base.Fitness, weights=(1.0,))
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
+    else:
+        creator.create(gencome.config.fitness_type, base.Fitness, weights=(-1.0,))
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin, pset=decision_set)
+    
     logger.debug(f"Worker {multiprocessing.current_process().name} ready!")
 
 if __name__ == '__main__':
@@ -226,8 +236,12 @@ if __name__ == '__main__':
     decision_set.addTerminal(no_count, name=gencome.config.NOT_COUNT_LABEL)
 
     # GP declaration
-    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-    creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
+    if gencome.config.fitness_type == "FitnessMax":
+        creator.create(gencome.config.fitness_type, base.Fitness, weights=(1.0,))
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
+    else:
+        creator.create(gencome.config.fitness_type, base.Fitness, weights=(-1.0,))
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin, pset=decision_set)
 
     toolbox = base.Toolbox()
     gencome.config.toolbox = toolbox
