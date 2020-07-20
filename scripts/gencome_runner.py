@@ -349,7 +349,8 @@ if __name__ == '__main__':
                 except: 
                     print(f"Unable to generate tree-pop-{str(j+1)}.dot")
                 save_rules(f, get_decision_rules(pop_ind), f"Pop#{j+1}", pop_ind)
-
+    
+    # store detailed information about the trees
     individuals = []
     reported = set()
     for i, ind in enumerate(hof):
@@ -359,6 +360,28 @@ if __name__ == '__main__':
         if str(ind) not in reported:
             individuals.append(summarize_individual(f"Pop#{i+1}", ind))  
             reported.add(str(ind)) 
+    
     with open(os.path.join(results_dir_path, "trees.json"), 'w', encoding='utf-8') as fj:
         json.dump(individuals, fj, indent=4, ensure_ascii=True)
-
+    
+    # store compiled trees for further use
+    individuals_compiled = {'features_names': gencome.config.features}
+    individuals_compiled['features_map'] = { f"{gencome.config.BASE_FEATURE_NAME}{str(index)}": feature \
+                        for index, feature in enumerate(gencome.config.features, start=0)}
+    individuals_compiled['features_map_rev'] = { feature: f"{gencome.config.BASE_FEATURE_NAME}{str(index)}" \
+                        for index, feature in enumerate(gencome.config.features, start=0)}
+    individuals_compiled['trees'] = []
+    reported = set()
+    for i, ind in enumerate(hof):
+        ind_dict = summarize_individual(f"Top#{i+1}", ind)
+        ind_dict['compiled'] =  gp.compile(expr=ind, pset=decision_set)
+        individuals_compiled['trees'].append(ind_dict)
+        reported.add(str(ind))
+    for i, ind in enumerate(population):
+        if str(ind) not in reported:
+            ind_dict = summarize_individual(f"Pop#{i+1}", ind)
+            ind_dict['compiled'] =  gp.compile(expr=ind, pset=decision_set)
+            individuals_compiled['trees'].append(ind_dict)
+            reported.add(str(ind))
+    with open(os.path.join(results_dir_path, "trees.pickle"), 'wb') as fp:
+        pickle.dump(individuals_compiled, fp)

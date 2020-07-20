@@ -123,6 +123,6 @@ def compare_rules(rule1, rule2):
     return rule1[0] == rule2[0] and rule1[1] == rule2[1]
 
 def summarize_individual(label, ind):
-    return {"label": label, 'raw_tree': str(ind), 
+    return {"label": label, 'depth': ind.height, 'raw_tree': str(ind), 
             'tree': str_individual_with_real_feature_names(ind), 
             'corr': ind.fitness.values[0], 'pvalue': ind.fitness.values[1]}
