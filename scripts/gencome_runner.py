@@ -61,7 +61,7 @@ parser.add_argument("--sep",
 
 parser.add_argument("--correlation",
                     help="a correlation coefficient to be used when evaluating individuals.", 
-                    type=str, choices=["Spearman", "Pearson"], default="Spearman")
+                    type=str, choices=["Spearman", "Pearson", "Kendall"], default="Spearman")
 
 parser.add_argument("--fitness_type",
                     help="a correlation coefficient to be used when evaluating individuals.", 
@@ -303,54 +303,8 @@ if __name__ == '__main__':
     with open(os.path.join(results_dir_path, "logbook.pickle"), 'wb') as f:
         pickle.dump(logbook, f)
     
-    with open(os.path.join(results_dir_path, "rules.txt"), 'w') as f:
-        reported = set()
-        for i, hof_ind in enumerate(hof):
-            reported.add(str(hof_ind)) 
-            head_node = list_dfs_to_tree(hof_ind)
-            print(f"Definition Top#{i+1}: {str_individual_with_real_feature_names(hof_ind)}")
-            graph = visualize_individual(head_node)
-            try:
-                graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.png"),
-                        format="png", prog="dot")
-            except: 
-                print(f"Unable to generate tree-top-{str(i+1)}.png")
-            try:
-                graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.pdf"),
-                        format="pdf", prog="dot")
-            except: 
-                print(f"Unable to generate tree-top-{str(i+1)}.pdf")
-            try:
-                graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.dot"),
-                        format="dot", prog="dot")
-            except: 
-                print(f"Unable to generate tree-top-{str(i+1)}.dot")
-            save_rules(f, get_decision_rules(hof_ind), f"Top#{i+1}", hof_ind)
-        
-        for j, pop_ind in enumerate(population):
-            if str(pop_ind) not in reported:
-                reported.add(str(pop_ind))
-                print(f"Definition Pop#{j+1}: {str_individual_with_real_feature_names(pop_ind)}")
-                head_node = list_dfs_to_tree(pop_ind)
-                graph = visualize_individual(head_node)
-                try:
-                    graph.draw(path=os.path.join(results_dir_path, f"tree-pop-{str(j+1)}.png"),
-                            format="png", prog="dot")
-                except: 
-                    print(f"Unable to generate tree-pop-{str(j+1)}.png")
-                try:
-                    graph.draw(path=os.path.join(results_dir_path, f"tree-pop-{str(j+1)}.pdf"),
-                            format="pdf", prog="dot")
-                except: 
-                    print(f"Unable to generate tree-pop-{str(j+1)}.pdf")
-                try:
-                    graph.draw(path=os.path.join(results_dir_path, f"tree-pop-{str(j+1)}.dot"),
-                            format="dot", prog="dot")
-                except: 
-                    print(f"Unable to generate tree-pop-{str(j+1)}.dot")
-                save_rules(f, get_decision_rules(pop_ind), f"Pop#{j+1}", pop_ind)
-    
     # store detailed information about the trees
+    logger.debug("Saving information about trees...")
     individuals = []
     reported = set()
     for i, ind in enumerate(hof):
@@ -360,11 +314,12 @@ if __name__ == '__main__':
         if str(ind) not in reported:
             individuals.append(summarize_individual(f"Pop#{i+1}", ind))  
             reported.add(str(ind)) 
-    
+    logger.debug("Using json to store the information about the trees...")
     with open(os.path.join(results_dir_path, "trees.json"), 'w', encoding='utf-8') as fj:
         json.dump(individuals, fj, indent=4, ensure_ascii=True)
-    
+
     # store compiled trees for further use
+    logger.debug("Saving compiled trees...")
     individuals_compiled = {'features_names': gencome.config.features}
     individuals_compiled['features_map'] = { f"{gencome.config.BASE_FEATURE_NAME}{str(index)}": feature \
                         for index, feature in enumerate(gencome.config.features, start=0)}
@@ -383,5 +338,67 @@ if __name__ == '__main__':
             ind_dict['compiled'] =  gp.compile(expr=ind, pset=decision_set)
             individuals_compiled['trees'].append(ind_dict)
             reported.add(str(ind))
+    logger.debug("Using pickle to store the trees...")
     with open(os.path.join(results_dir_path, "trees.pickle"), 'wb') as fp:
         pickle.dump(individuals_compiled, fp)
+    
+    logger.debug("Saving the rules...")
+    with open(os.path.join(results_dir_path, "rules.txt"), 'w') as f:
+        reported = set()
+        for i, hof_ind in enumerate(hof):
+            reported.add(str(hof_ind)) 
+            print(f"Definition Top#{i+1}: {str_individual_with_real_feature_names(hof_ind)}")
+            save_rules(f, get_decision_rules(hof_ind), f"Top#{i+1}", hof_ind)
+        
+        for j, pop_ind in enumerate(population):
+            if str(pop_ind) not in reported:
+                reported.add(str(pop_ind))
+                print(f"Definition Pop#{j+1}: {str_individual_with_real_feature_names(pop_ind)}")
+                save_rules(f, get_decision_rules(pop_ind), f"Pop#{j+1}", pop_ind)
+    
+    logger.debug("Saving graphical representation of the trees...")
+    reported = set()
+    for i, hof_ind in enumerate(hof):
+        reported.add(str(hof_ind)) 
+        head_node = list_dfs_to_tree(hof_ind)
+        print(f"Definition Top#{i+1}: {str_individual_with_real_feature_names(hof_ind)}")
+        graph = visualize_individual(head_node)
+        try:
+            graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.png"),
+                    format="png", prog="dot")
+        except: 
+            print(f"Unable to generate tree-top-{str(i+1)}.png")
+        try:
+            graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.pdf"),
+                    format="pdf", prog="dot")
+        except: 
+            print(f"Unable to generate tree-top-{str(i+1)}.pdf")
+        try:
+            graph.draw(path=os.path.join(results_dir_path, f"tree-top-{str(i+1)}.dot"),
+                    format="dot", prog="dot")
+        except: 
+            print(f"Unable to generate tree-top-{str(i+1)}.dot")
+    
+    for j, pop_ind in enumerate(population):
+        if str(pop_ind) not in reported:
+            reported.add(str(pop_ind))
+            print(f"Definition Pop#{j+1}: {str_individual_with_real_feature_names(pop_ind)}")
+            head_node = list_dfs_to_tree(pop_ind)
+            graph = visualize_individual(head_node)
+            try:
+                graph.draw(path=os.path.join(results_dir_path, f"tree-pop-{str(j+1)}.png"),
+                        format="png", prog="dot")
+            except: 
+                print(f"Unable to generate tree-pop-{str(j+1)}.png")
+            try:
+                graph.draw(path=os.path.join(results_dir_path, f"tree-pop-{str(j+1)}.pdf"),
+                        format="pdf", prog="dot")
+            except: 
+                print(f"Unable to generate tree-pop-{str(j+1)}.pdf")
+            try:
+                graph.draw(path=os.path.join(results_dir_path, f"tree-pop-{str(j+1)}.dot"),
+                        format="dot", prog="dot")
+            except: 
+                print(f"Unable to generate tree-pop-{str(j+1)}.dot")
+    
+    logger.debug("Finished...")

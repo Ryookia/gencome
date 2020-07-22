@@ -4,7 +4,7 @@ import random
 import operator
 import copy
 import numpy as np
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import spearmanr, pearsonr, kendalltau
 from deap import  gp
 from timeit import default_timer as timer
 import multiprocessing
@@ -52,6 +52,8 @@ def evaluation(data, individual, pset):
         corr, pvalue = spearmanr(x_count_result, y_count_result)
     elif gencome.config.correlation == "Pearson":
         corr, pvalue = pearsonr(x_count_result, y_count_result)
+    elif gencome.config.correlation == "Kendall":
+        corr, pvalue = kendalltau(x_count_result, y_count_result)
     if math.isnan(corr):
         end = timer()
         logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
