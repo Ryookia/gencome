@@ -294,7 +294,10 @@ if __name__ == '__main__':
             gencome.config.mutate_prob, gencome.config.generations, 
             stats=stats, halloffame=hof)
 
-    population = sorted(population, key=lambda ind: ind.fitness.values[0], reverse=True)
+    if gencome.config.fitness_type == "FitnessMax":
+        population = sorted(population, key=lambda ind: ind.fitness.values[0], reverse=True)
+    else:
+        population = sorted(population, key=lambda ind: ind.fitness.values[0], reverse=False)
 
     pool.close()
     pool.join()
