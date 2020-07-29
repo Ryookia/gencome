@@ -123,6 +123,28 @@ def compare_rules(rule1, rule2):
     return rule1[0] == rule2[0] and rule1[1] == rule2[1]
 
 def summarize_individual(label, ind):
+    count_or_rules = []
+    rules = get_decision_rules(ind)
+    for rule in rules:
+        if rule[1] == gencome.config.COUNT_LABEL:
+            # skup rules having the same keyword for true and false
+            keywords_true = set()
+            keywords_false = set()
+            for keyword in rule[0]:
+                if keyword[0]:
+                   keywords_true.add(keyword[1]) 
+                else:
+                    keywords_false.add(keyword[1]) 
+            if len(keywords_true.intersection(keywords_false)) > 0:
+                continue
+            keywords = []
+            for keyword in rule[0]:
+                if not keyword[0]:
+                    keywords.append(gencome.config.NOT_PREFIX + "'"+get_primitive_keyword(keyword[1], gencome.config.features)+"'")
+                else:
+                    keywords.append("'"+get_primitive_keyword(keyword[1], gencome.config.features)+"'")
+            count_or_rules.append(keywords)
     return {"label": label, 'depth': ind.height, 'raw_tree': str(ind), 
+            'keywords_true_rules' : count_or_rules,
             'tree': str_individual_with_real_feature_names(ind), 
             'corr': ind.fitness.values[0], 'pvalue': ind.fitness.values[1]}

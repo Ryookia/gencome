@@ -233,7 +233,7 @@ if __name__ == '__main__':
     logger.debug(f"Finished the grouping of the X data by id ({end-start:.2f}s)...")
     gc.collect()
 
-    logger.debug(f"Loading Y data from {x_file_path}...")
+    logger.debug(f"Loading Y data from {y_file_path}...")
     y_file = pd.read_csv(y_file_path, sep=sep)
     gencome.config.y_dict = {y[1]['id']:y[1]['value'] for y in y_file[['id', 'value']].iterrows()}
     gencome.config.y = [gencome.config.y_dict[index] for index in x_features]
