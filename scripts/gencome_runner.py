@@ -206,6 +206,8 @@ if __name__ == '__main__':
     logger.debug(f"Loading X data from {x_file_path}...")
     start = timer()
     x_file = pd.read_csv(x_file_path, sep=sep)
+    d = dict.fromkeys(x_file.select_dtypes(np.int64).columns, np.uint8)
+    x_file = x_file.astype(d)
     end = timer()
     logger.debug(f"Loaded X data from {x_file_path} ({end-start:.2f}s)...")
 
