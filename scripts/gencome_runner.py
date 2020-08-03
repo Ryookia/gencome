@@ -202,6 +202,8 @@ if multiprocessing.current_process().name != "MainProcess":
 
 if __name__ == '__main__':
 
+    entire_process_start = timer()
+
     #Load data
     logger.debug(f"Loading X data from {x_file_path}...")
     start = timer()
@@ -231,7 +233,7 @@ if __name__ == '__main__':
     del x_groups
     gencome.config.features = columns
     gencome.config.x_features = x_features
-    end = timer()
+    
     logger.debug(f"Finished the grouping of the X data by id ({end-start:.2f}s)...")
     gc.collect()
 
@@ -406,4 +408,5 @@ if __name__ == '__main__':
             except: 
                 print(f"Unable to generate tree-pop-{str(j+1)}.dot")
     
-    logger.debug("Finished...")
+    entire_process_end = timer()
+    logger.debug(f"Finished in {entire_process_end-entire_process_start:.2f}s ...")
