@@ -147,4 +147,4 @@ def summarize_individual(label, ind):
     return {"label": label, 'depth': ind.height, 'raw_tree': str(ind), 
             'keywords_true_rules' : count_or_rules,
             'tree': str_individual_with_real_feature_names(ind), 
-            'corr': ind.fitness.values[0], 'pvalue': ind.fitness.values[1]}
+            'corr': ", ".join([f'{x:.4f}' for x in ind.fitness.values])}

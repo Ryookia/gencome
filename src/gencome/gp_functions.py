@@ -32,35 +32,41 @@ def is_too_deep_ind(ind, max_value):
     return  ind.height > max_value
 
 def evaluation(data, individual, pset):
-    max_tree_depth, x_features, y_count_result = data
+    max_tree_depth, x_features_all, y_count_result_all = data
     start = timer()
     if is_too_deep_ind(individual, max_tree_depth):
         end = timer()
-        logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
-        return 0, 0
+        result = [0] * len(x_features_all)
+        result_str = [f"{x:.4f}" for x in result]
+        logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness={', '.join(result_str)}, {str_individual_with_real_feature_names(individual)}")
+        return result
     func = gp.compile(expr=individual, pset=pset)
-    
-    x_count_result = []
-    for index in x_features:
-        count = 0
-        for entry in x_features[index]:
-            if func(entry):
-                count += 1
-        x_count_result.append(count)
 
-    if gencome.config.correlation == "Spearman":
-        corr, pvalue = spearmanr(x_count_result, y_count_result)
-    elif gencome.config.correlation == "Pearson":
-        corr, pvalue = pearsonr(x_count_result, y_count_result)
-    elif gencome.config.correlation == "Kendall":
-        corr, pvalue = kendalltau(x_count_result, y_count_result)
-    if math.isnan(corr):
-        end = timer()
-        logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness=0.0, {str_individual_with_real_feature_names(individual)}")
-        return 0, 0
+    result = []
+    for i, x_features in enumerate(x_features_all):
+        x_count_result = []
+        for index in x_features:
+            count = 0
+            for entry in x_features[index]:
+                if func(entry):
+                    count += 1
+            x_count_result.append(count)
+
+        if gencome.config.correlation == "Spearman":
+            corr, pvalue = spearmanr(x_count_result, y_count_result_all[i])
+        elif gencome.config.correlation == "Pearson":
+            corr, pvalue = pearsonr(x_count_result, y_count_result_all[i])
+        elif gencome.config.correlation == "Kendall":
+            corr, pvalue = kendalltau(x_count_result, y_count_result_all[i])
+        if math.isnan(corr):
+            result.append(0)
+        else:
+            result.append(corr)
     end = timer()
-    logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness={corr:.4f} ({pvalue:.3f}), {str_individual_with_real_feature_names(individual)}")
-    return corr, pvalue
+
+    result_str = [f"{x:.4f}" for x in result]
+    logger.debug(f"Evaluating ({multiprocessing.current_process().name}) {end-start:.2f}s, fitness={', '.join(result_str)}, {str_individual_with_real_feature_names(individual)}")
+    return result
 
 def multiple_mutator(individual, pset):
     weight_sum = gencome.config.mut_uniform_weight + gencome.config.mut_replacement_weight \

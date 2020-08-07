@@ -8,7 +8,7 @@ logger.addHandler(ch)
 
 features = None
 x_features = None
-y_dict = {}
+y_dicts = []
 y = None
 fitness_type = None
 toolbox = None

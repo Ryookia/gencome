@@ -35,21 +35,21 @@ logger = gencome.config.logger
 parser = argparse.ArgumentParser(description=description)
 
 parser.add_argument("--x_file_path",
-                    help="a path to an input csv file; it has to have an id column with"
+                    help="paths to input csv files; they have to have an id column with"
                     " string value that uniquely identifies a given object (the same id "
                     " has to be used in the corresponding y csv file), and in the remaining columns "
                     " the features describing a given object. Note that usually there will be many entries "
                     " for each object (e.g., an object could be a source file while all entries with that id "
                     " would be lines in that file).", 
-                    type=str, required=True)
+                    type=str, nargs='+', required=True)
 
 parser.add_argument("--y_file_path",
-                    help="a path to an output csv file; it has to have at least two columsn: id and value, "
+                    help="paths to output csv files; they have to have at least two columns: id and value, "
                     " the ids have to be the same as the ones used in the x file, while the value "
                     " column has to contain the numbers that the counted objects in the x file should "
                     " correlate with (e.g., entries in x could be lines of code while the values in y "
                     " could be the development effort for each file used as id).", 
-                    type=str, required=True)
+                    type=str, nargs='+', required=True)
 
 parser.add_argument("--results_dir_path",
                     help="a path to a directory where the results will be stored.", 
@@ -61,11 +61,11 @@ parser.add_argument("--sep",
 
 parser.add_argument("--correlation",
                     help="a correlation coefficient to be used when evaluating individuals.", 
-                    type=str, choices=["Spearman", "Pearson", "Kendall"], default="Spearman")
+                    type=str, choices=["Spearman", "Pearson", "Kendall"], default="Kendall")
 
 parser.add_argument("--fitness_type",
                     help="a correlation coefficient to be used when evaluating individuals.", 
-                    type=str, choices=["FitnessMax", "FitnessMin"], default="FitnessMax")
+                    type=str, nargs='+', choices=["max", "min"], default=["max"])
 
 parser.add_argument("--threads",
                     help="a number of threads to be used (default is the number of max(#CPUs-1, 1).", 
@@ -135,8 +135,8 @@ args = vars(parser.parse_args())
 print(f"Run parameters: {str(args)}")
 
 
-x_file_path = args['x_file_path']
-y_file_path = args['y_file_path']
+x_file_paths = args['x_file_path']
+y_file_paths = args['y_file_path']
 results_dir_path = args['results_dir_path']
 sep = args['sep']
 threads = args['threads']
@@ -158,13 +158,15 @@ gencome.config.mut_replacement_weight = args['mut_replacement_weight']
 gencome.config.mut_insert_weight = args['mut_insert_weight']
 gencome.config.mut_shrink_weight = args['mut_shrink_weight']
 
-if not os.path.isfile(x_file_path):
-    print(f"{x_file_path} doesn't exist")
-    exit(1)
+for x_file_path in x_file_paths:
+    if not os.path.isfile(x_file_path):
+        print(f"{x_file_path} doesn't exist")
+        exit(1)
 
-if not os.path.isfile(y_file_path):
-    print(f"{y_file_path} doesn't exist")
-    exit(1)
+for y_file_path in y_file_paths:
+    if not os.path.isfile(y_file_path):
+        print(f"{y_file_path} doesn't exist")
+        exit(1)
 
 if not os.path.isdir(results_dir_path):
     os.makedirs(results_dir_path)
@@ -172,16 +174,28 @@ if not os.path.isdir(results_dir_path):
 # Each worker need to initialize individual so it 
 # needs to load minimum data from the input file to do so.
 if multiprocessing.current_process().name != "MainProcess":
-    logger.debug(f"Loading data in the worker: {multiprocessing.current_process().name}")
-    start = timer()
-    x_file = next(pd.read_csv(x_file_path, sep=sep, chunksize=1))
-    end = timer()
-    logger.debug(f"Loaded data in the worker: {multiprocessing.current_process().name} ({end-start:.2f}s)...")
 
-    id_index = x_file.columns.tolist().index("id")
-    columns = x_file.columns.tolist()
-    del columns[id_index]
-    gencome.config.features = columns
+    common_columns = None
+    x_files = []
+    for x_file_path in x_file_paths: 
+        logger.debug(f"Loading data in the worker: {multiprocessing.current_process().name}")
+        start = timer()
+        x_file = next(pd.read_csv(x_file_path, sep=sep, chunksize=1))
+        x_files.append(x_file)
+        end = timer()
+        logger.debug(f"Loaded data in the worker: {multiprocessing.current_process().name} ({end-start:.2f}s)...")
+
+        columns = x_file.columns.tolist()
+        if common_columns is None:
+            common_columns = set(columns)
+        else:
+            common_columns = common_columns.intersection(set(columns))
+
+    common_columns = list(common_columns)
+    id_index = common_columns.index("id")
+    del common_columns[id_index]
+    common_columns.sort()
+    gencome.config.features = common_columns
 
     decision_set = gp.PrimitiveSet(name="BaseSet", arity=0)
     for index, feature in enumerate(gencome.config.features, start=0):
@@ -190,13 +204,10 @@ if multiprocessing.current_process().name != "MainProcess":
     decision_set.addTerminal(count, name=gencome.config.COUNT_LABEL)
     decision_set.addTerminal(no_count, name=gencome.config.NOT_COUNT_LABEL)
 
+    fitness_weights = [1.0 if fitness_type == 'max' else -1.0 for fitness_type in gencome.config.fitness_type]
     # GP declaration
-    if gencome.config.fitness_type == "FitnessMax":
-        creator.create(gencome.config.fitness_type, base.Fitness, weights=(1.0, -1e-100))
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
-    else:
-        creator.create(gencome.config.fitness_type, base.Fitness, weights=(-1.0, -1e-100))
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin, pset=decision_set)
+    creator.create("Fitness", base.Fitness, weights=fitness_weights)
+    creator.create("Individual", gp.PrimitiveTree, fitness=creator.Fitness, pset=decision_set)
     
     logger.debug(f"Worker {multiprocessing.current_process().name} ready!")
 
@@ -205,42 +216,70 @@ if __name__ == '__main__':
     entire_process_start = timer()
 
     #Load data
-    logger.debug(f"Loading X data from {x_file_path}...")
-    start = timer()
-    x_file = pd.read_csv(x_file_path, sep=sep)
-    d = dict.fromkeys(x_file.select_dtypes(np.int64).columns, np.uint8)
-    x_file = x_file.astype(d)
-    end = timer()
-    logger.debug(f"Loaded X data from {x_file_path} ({end-start:.2f}s)...")
+    common_columns = None
+    x_files = []
+    for x_file_path in x_file_paths:
+        logger.debug(f"Loading X data from {x_file_path}...")
+        start = timer()
+        x_file = pd.read_csv(x_file_path, sep=sep)
+        d = dict.fromkeys(x_file.select_dtypes([np.int64, np.float64, np.int32, np.int16]).columns, np.uint8)
+        x_file = x_file.astype(d)
+        x_files.append(x_file)
+        end = timer()
+        logger.debug(f"Loaded X data from {x_file_path} ({end-start:.2f}s)...")
+
+        columns = x_file.columns.tolist()
+        if common_columns is None:
+            common_columns = set(columns)
+        else:
+            common_columns = common_columns.intersection(set(columns))
+    
+    common_columns = list(common_columns)
+    id_index = common_columns.index("id")
+    del common_columns[id_index]
+    common_columns.sort()
+    gencome.config.features = common_columns
+
+    
+    x_files_unified_cols = []
+    for x_file in x_files:
+        x_files_unified_cols.append(x_file[['id']+common_columns])
+        del x_file
+    x_files = x_files_unified_cols
+    gc.collect()
 
     logger.debug("Grouping X data by id...")
     start = timer()
-    x_groups = defaultdict(lambda: [])
-    id_index = x_file.columns.tolist().index("id")
-    columns = x_file.columns.tolist()
-    del columns[id_index]
-    x_features = OrderedDict()
-    for i, row in enumerate(x_file.values):
-        if i % 10000 == 0:
-            logger.debug(f"Processing {i+1:,} row from X...")
-        new_row = row
-        x_groups[str(new_row[id_index])].append(tuple(np.delete(new_row, id_index).tolist()))
-    logger.debug("Grouping by id...")
-    for key in x_groups.keys():
-        if i % 1000 == 0:
-            logger.debug(f"Grouping by {i+1:,} id '{key}' from X ...")
-        x_features[key] = pd.DataFrame(x_groups.get(key)).values
-    del x_groups
-    gencome.config.features = columns
+    x_features = []
+    for x_file in x_files:
+        id_index = x_file.columns.tolist().index('id')
+        x_groups = defaultdict(lambda: [])
+        x_file_features = OrderedDict()
+        for i, row in enumerate(x_file.values):
+            if i % 10000 == 0:
+                logger.debug(f"Processing {i+1:,} row from X...")
+            new_row = row
+            x_groups[str(new_row[id_index])].append(tuple(np.delete(new_row, id_index).tolist()))
+        logger.debug("Grouping by id...")
+        for key in x_groups.keys():
+            if i % 1000 == 0:
+                logger.debug(f"Grouping by {i+1:,} id '{key}' from X ...")
+            x_file_features[key] = pd.DataFrame(x_groups.get(key)).values
+        del x_groups
+        x_features.append(x_file_features)
     gencome.config.x_features = x_features
     
+    end = timer()
     logger.debug(f"Finished the grouping of the X data by id ({end-start:.2f}s)...")
     gc.collect()
 
+    gencome.config.y = []
     logger.debug(f"Loading Y data from {y_file_path}...")
-    y_file = pd.read_csv(y_file_path, sep=sep)
-    gencome.config.y_dict = {y[1]['id']:y[1]['value'] for y in y_file[['id', 'value']].iterrows()}
-    gencome.config.y = [gencome.config.y_dict[index] for index in x_features]
+    for i, y_file_path in enumerate(y_file_paths):
+        y_file = pd.read_csv(y_file_path, sep=sep)
+        y_dict = {y[1]['id']:y[1]['value'] for y in y_file[['id', 'value']].iterrows()}
+        gencome.config.y_dicts.append(y_dict)
+        gencome.config.y.append([y_dict[index] for index in x_features[i]])
 
     logger.debug("Configuring the toolbox...")
     decision_set = gp.PrimitiveSet(name="BaseSet", arity=0)
@@ -250,13 +289,11 @@ if __name__ == '__main__':
     decision_set.addTerminal(count, name=gencome.config.COUNT_LABEL)
     decision_set.addTerminal(no_count, name=gencome.config.NOT_COUNT_LABEL)
 
+
+    fitness_weights = [1.0 if fitness_type == 'max' else -1.0 for fitness_type in gencome.config.fitness_type]
     # GP declaration
-    if gencome.config.fitness_type == "FitnessMax":
-        creator.create(gencome.config.fitness_type, base.Fitness, weights=(1.0, -1e-100))
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=decision_set)
-    else:
-        creator.create(gencome.config.fitness_type, base.Fitness, weights=(-1.0, -1e-100))
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMin, pset=decision_set)
+    creator.create("Fitness", base.Fitness, weights=fitness_weights)
+    creator.create("Individual", gp.PrimitiveTree, fitness=creator.Fitness, pset=decision_set)
 
     toolbox = base.Toolbox()
     gencome.config.toolbox = toolbox
@@ -298,7 +335,7 @@ if __name__ == '__main__':
             gencome.config.mutate_prob, gencome.config.generations, 
             stats=stats, halloffame=hof)
 
-    if gencome.config.fitness_type == "FitnessMax":
+    if gencome.config.fitness_type[0] == "max":
         population = sorted(population, key=lambda ind: ind.fitness.values[0], reverse=True)
     else:
         population = sorted(population, key=lambda ind: ind.fitness.values[0], reverse=False)
