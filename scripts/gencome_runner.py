@@ -11,6 +11,7 @@ import pickle
 from timeit import default_timer as timer
 import random
 import json
+import logging
 
 import copy
 from collections import defaultdict, OrderedDict
@@ -131,6 +132,10 @@ parser.add_argument("--random_state",
                     help="a random seed.", 
                     type=int, default=24110)
 
+parser.add_argument("--logging_level",
+                    help="a level of verbosity.", 
+                    type=str, choices=["DEBUG", "INFO"], default="INFO")
+
 args = vars(parser.parse_args())
 print(f"Run parameters: {str(args)}")
 
@@ -157,6 +162,10 @@ gencome.config.mut_uniform_weight = args['mut_uniform_weight']
 gencome.config.mut_replacement_weight = args['mut_replacement_weight']
 gencome.config.mut_insert_weight = args['mut_insert_weight']
 gencome.config.mut_shrink_weight = args['mut_shrink_weight']
+
+if args['logging_level'] == "DEBUG":
+    gencome.config.logger.setLevel(logging.DEBUG)
+    gencome.config.ch.setLevel(logging.DEBUG)
 
 for x_file_path in x_file_paths:
     if not os.path.isfile(x_file_path):
