@@ -230,9 +230,14 @@ if __name__ == '__main__':
     for x_file_path in x_file_paths:
         logger.debug(f"Loading X data from {x_file_path}...")
         start = timer()
-        x_file = pd.read_csv(x_file_path, sep=sep)
+        logger.debug(f"Probabing data types in X data...")
+        x_file = next(pd.read_csv(x_file_path, sep=sep, chunksize=1))
         d = dict.fromkeys(x_file.select_dtypes([np.int64, np.float64, np.int32, np.int16]).columns, np.uint8)
-        x_file = x_file.astype(d)
+        logger.debug(f"Loading X data...")
+        x_file = pd.read_csv(x_file_path, sep=sep, dtype=d)
+        #x_file = pd.read_csv(x_file_path, sep=sep)
+        #d = dict.fromkeys(x_file.select_dtypes([np.int64, np.float64, np.int32, np.int16]).columns, np.uint8)
+        #x_file = x_file.astype(d)
         x_files.append(x_file)
         end = timer()
         logger.debug(f"Loaded X data from {x_file_path} ({end-start:.2f}s)...")
@@ -283,8 +288,8 @@ if __name__ == '__main__':
     gc.collect()
 
     gencome.config.y = []
-    logger.debug(f"Loading Y data from {y_file_path}...")
     for i, y_file_path in enumerate(y_file_paths):
+        logger.debug(f"Loading Y data from {y_file_path}...")
         y_file = pd.read_csv(y_file_path, sep=sep)
         y_dict = {y[1]['id']:y[1]['value'] for y in y_file[['id', 'value']].iterrows()}
         gencome.config.y_dicts.append(y_dict)
