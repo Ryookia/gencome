@@ -1,5 +1,7 @@
 # GENCOME - GENetic COunt-based Measures discovErer
 
+**Note: the repository has been moved to: https://github.com/mochodek/gencome for further maintenance. 
+
 GENCOME is a tool that allows discovering new count-based software measures based on the provided examples. Count-based measures have definitions consisting of two steps. In the first step, we apply rules to decide whether to count a given object or not, and in the second step we count the number of objects for which the answer was yes. A good example of count-based measure are lines of code (LOC). For instance, if you would like to count so-called non-commented lines of code (NCLOC) in a file you have to iterate over the lines in that file and for each of them evaluate the following rule "IF not commented AND not empty THEN true OTHERWISE false" and count the number of lines for which the answer was "true."
 
 ## Installation
